@@ -1,19 +1,19 @@
 package main
 
 import (
-	"fmt"
-	"os"
-	// "reflect"
+	"bufio"
 	"bytes"
 	"compress/zlib"
 	"encoding/hex"
+	"fmt"
 	"io"
-	// "bufio"
+	"os"
+	"reflect"
 	// "log"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
-	"regexp"
 )
 
 type Object struct {
@@ -48,25 +48,23 @@ func (t *Tree) Format() {
 	}
 }
 
-
 type Parent struct {
 	Hash string
 }
 
 type Sign struct {
-	Name string
-	Email string
+	Name      string
+	Email     string
 	TimeStamp time.Time
 }
 
 type Commit struct {
 	Tree      string
-	Parent    []Parent
+	Parents   []Parent
 	Author    Sign
 	Committer Sign
-	Message string
+	Message   string
 }
-
 
 func (b *Blob) out_content() {
 	fmt.Println(string(b.Data))
@@ -125,6 +123,13 @@ func GetObject(hash string) []byte {
 	r.Read(c)
 	return c
 }
+
+var (
+	emailRegexpString     = "([a-zA-Z0-9_.+-]+@([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\\.)+[a-zA-Z]{2,})"
+	timestampRegexpString = "([1-9][0-9]* \\+[0-9]{4})"
+	sha1Regexp            = regexp.MustCompile("[0-9a-f]{20}")
+	signRegexp            = regexp.MustCompile("^[^<]* <" + emailRegexpString + "> " + timestampRegexpString + "$")
+)
 
 func main() {
 	// c := GetObject("01fa50e0a408cb77e94ffdc161643c1ac65794bb")
@@ -209,15 +214,118 @@ func main() {
 	} else if strings.HasPrefix(string(c), "commit ") {
 		Header := string(objs[0])
 		Contents := objs[1:]
-
+		fmt.Println(reflect.TypeOf(Contents))
 		fmt.Println(Header)
 
-		reg := "\r\n|\n"
-		columns := regexp.MustCompile(reg).Split(string(Contents[0]), -1)
-		for _, column := range columns {
-			fmt.Printf("%s\n", column) // 赤と黄 青と緑 白と黒
+		bContents := make([]byte, 0)
+		for _, Content := range Contents {
+			bContents = append(bContents, Content...)
 		}
-		
+
+		cReader := strings.NewReader(string(bContents[1:]))
+		scanner := bufio.NewScanner(cReader)
+		// fmt.Println(scanner)
+
+		var commit Commit
+		var parents []Parent
+
+		for scanner.Scan() {
+			text := scanner.Text()
+			cols := strings.SplitN(text, " ", 2)
+			if len(cols) != 2 {
+				break
+			}
+			lineType := cols[0]
+			lineMeta := cols[1]
+			fmt.Println(" ")
+			fmt.Println(cols)
+
+			switch lineType {
+			case "tree":
+				Hash := strings.Replace(lineMeta, "tree ", "", -1)
+				Hash = strings.ReplaceAll(Hash, " ", "")
+				fmt.Println(Hash)
+				commit.Tree = Hash
+			case "parent":
+				var parent Parent
+				Hash := strings.Replace(lineMeta, "parent ", "", -1)
+				Hash = strings.ReplaceAll(Hash, " ", "")
+				parent.Hash = Hash
+				parents = append(parents, parent)
+				commit.Parents = parents
+			case "author":
+				if ok := signRegexp.MatchString(lineMeta); !ok {
+					continue
+				}
+				sign1 := strings.SplitN(lineMeta, " <", 2)
+				name := sign1[0]
+				sign2 := strings.SplitN(sign1[1], "> ", 2)
+				email := sign2[0]
+				sign3 := strings.SplitN(sign2[1], " ", 2)
+				unixTime, err := strconv.ParseInt(sign3[0], 10, 64)
+				if err != nil {
+					continue
+				}
+				var offsetHour, offsetMinute int
+				if _, err := fmt.Sscanf(sign3[1], "+%02d%02d", &offsetHour, &offsetMinute); err != nil {
+					continue
+				}
+				location := time.FixedZone(" ", 3600*offsetHour+60*offsetMinute)
+				timestamp := time.Unix(unixTime, 0).In(location)
+				time.Now().String()
+				fmt.Println("timeStamp:", timestamp)
+				fmt.Println("name:", name)
+				fmt.Println("email:", email)
+
+				sign := Sign{
+					Name:      name,
+					Email:     email,
+					TimeStamp: timestamp,
+				}
+				commit.Author = sign
+
+			case "committer":
+				if ok := signRegexp.MatchString(lineMeta); !ok {
+					continue
+				}
+				sign1 := strings.SplitN(lineMeta, " <", 2)
+				name := sign1[0]
+				sign2 := strings.SplitN(sign1[1], "> ", 2)
+				email := sign2[0]
+				sign3 := strings.SplitN(sign2[1], " ", 2)
+				unixTime, err := strconv.ParseInt(sign3[0], 10, 64)
+				if err != nil {
+					continue
+				}
+				var offsetHour, offsetMinute int
+				if _, err := fmt.Sscanf(sign3[1], "+%02d%02d", &offsetHour, &offsetMinute); err != nil {
+					continue
+				}
+				location := time.FixedZone(" ", 3600*offsetHour+60*offsetMinute)
+				timestamp := time.Unix(unixTime, 0).In(location)
+				time.Now().String()
+				fmt.Println("timeStamp:", timestamp)
+				fmt.Println("name:", name)
+				fmt.Println("email:", email)
+				sign := Sign{
+					Name:      name,
+					Email:     email,
+					TimeStamp: timestamp,
+				}
+				commit.Committer = sign
+			}
+
+		}
+		messages := make([]string, 0)
+		for scanner.Scan() {
+			messages = append(messages, scanner.Text())
+		}
+		message := strings.Join(messages, "\n")
+		fmt.Println("message: ", message)
+		commit.Message = message
+
+		fmt.Printf("%+v\n", commit)
+
 	}
 
 }
