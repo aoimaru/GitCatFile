@@ -200,6 +200,7 @@ func main() {
 			}
 		}
 
+		
 		columns := make([]Column, 0)
 		for n, nContent := range nContents {
 			if len(string(nContent)) <= 0 {
