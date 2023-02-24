@@ -104,6 +104,24 @@ func reverse(array *[]byte) []byte {
 	return *array
 }
 
+func HashSample() []byte {
+	f, err := os.Open("/home/aoimaru/document/go_project/HashObject/sample")
+	if err != nil {
+		return []byte("hello")
+	}
+	defer f.Close()
+	dc := make([]byte, 1024)
+	(*f).Read(dc)
+	buf := bytes.NewBuffer(dc)
+	r, err := extract(buf)
+	if err != nil {
+		return []byte("hello")
+	}
+	c := make([]byte, 1024)
+	r.Read(c)
+	return c
+}
+
 func GetObject(hash string) []byte {
 	t_rep := "/mnt/c/Users/81701/Desktop/AtCoder/.git/objects/"
 	first_hash, second_hash := hash[:2], hash[2:]
@@ -134,14 +152,21 @@ var (
 func main() {
 	// c := GetObject("01fa50e0a408cb77e94ffdc161643c1ac65794bb")
 	// c := GetObject("0821bf3154d58047ae43053e6660a7906cfa0855")
-	c := GetObject("b5b7fe8f6a4bbf175e2a32b8624fd234aeb02a69")
-	// c := GetObject("57a8901f011f9c65f1a33bd6a55990acc42935c6")
+	// c := GetObject("b5b7fe8f6a4bbf175e2a32b8624fd234aeb02a69")
+	c := GetObject("57a8901f011f9c65f1a33bd6a55990acc42935c6")
 	// c := GetObject("98cdbc1ec60aa9b0f1142e0daab34ffc297955bd")
 	// c := GetObject("b8bd4a446eceb5655176cf3c4168513bbd77fc46") <-Gitのガベージコレクションで消されてる 多分
 	// c := GetObject("5519da6cca07470631a9e5dc9286fba3fbffb7d8")
 	// c := GetObject("c0c67ed0a4de0b63eaedb344c5faa42b962c6667") <-バグる
+	// c := HashSample()
+
 
 	// fmt.Println(string(c))
+	// fmt.Println(" ")
+	// fmt.Println(" ")
+	// fmt.Println(" ")
+	// fmt.Println(" ")
+	// fmt.Println(" ")
 
 	objs := FmtObject(&c)
 	if len(objs) < 2 {
@@ -152,6 +177,7 @@ func main() {
 		Header := string(objs[0])
 		Contents := objs[1:]
 
+		// fmt.Println(Header, objs[0][5:], string(objs[0][5:]))
 		fmt.Println(Header)
 		for _, Content := range Contents {
 			fmt.Println(string(Content))
@@ -263,6 +289,8 @@ func main() {
 				email := sign2[0]
 				sign3 := strings.SplitN(sign2[1], " ", 2)
 				unixTime, err := strconv.ParseInt(sign3[0], 10, 64)
+				fmt.Println(unixTime, reflect.TypeOf(unixTime))
+				fmt.Println("type:sign3[1]", reflect.TypeOf(sign3[1]), sign3[1])
 				if err != nil {
 					continue
 				}
@@ -273,7 +301,7 @@ func main() {
 				location := time.FixedZone(" ", 3600*offsetHour+60*offsetMinute)
 				timestamp := time.Unix(unixTime, 0).In(location)
 				time.Now().String()
-				fmt.Println("timeStamp:", timestamp)
+				fmt.Println("timeStamp:", timestamp, reflect.TypeOf(timestamp))
 				fmt.Println("name:", name)
 				fmt.Println("email:", email)
 
